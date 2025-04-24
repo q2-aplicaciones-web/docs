@@ -1,0 +1,190 @@
+@startuml Shared Kernel C#
+
+package "Shared Kernel" {
+  note "Domain-Driven Design Shared Kernel en C# .NET" as N1
+
+  ' ==== VALUE OBJECTS ====
+  package "Value Objects" {
+    class Money <<ValueObject>> {
+      - decimal _amount
+      - Currency _currency
+      + decimal Amount { get; }
+      + Currency Currency { get; }
+      + Money Add(Money other)
+      + Money Subtract(Money other)
+      + Money Multiply(double multiplier)
+    }
+
+    class Currency <<ValueObject>> {
+      - string _code
+      + string Code { get; }
+      + static Currency FromCode(string code)
+    }
+
+    class Address <<ValueObject>> {
+      - string _street
+      - string _city
+      - string _state
+      - string _zipCode
+      - string _country
+      + bool Equals(object other)
+      + string ToString()
+      + bool IsValid()
+    }
+
+    abstract class Id <<ValueObject>> {
+      - object _value
+      # Id(object value)
+      + object Value { get; }
+      + bool Equals(object other)
+      + int GetHashCode()
+    }
+
+    class EntityId <<ValueObject>> {
+      + EntityId(Guid value)
+    }
+
+    class OrderId <<ValueObject>> {
+      - Guid _value
+      + OrderId(Guid value)
+    }
+
+    class CustomerName <<ValueObject>> {
+      - string _value
+      + string Value { get; }
+    }
+  }
+
+  ' ==== ENTITIES ====
+  package "Entities" {
+    abstract class Entity {
+      - Id _id
+      # Entity(Id id)
+      + Id Id { get; }
+      + bool Equals(object other)
+      + int GetHashCode()
+    }
+  }
+
+  ' ==== INFRASTRUCTURE SERVICES ====
+  package "Infrastructure Services" {
+    interface IImageService {
+      + string UploadImage(byte[] imageData)
+      + void DeleteImage(string imageUrl)
+      + string TransformImage(string imageUrl, Dictionary<string, object> options)
+      + ImageMetadata GetImageMetadata(string imageUrl)
+    }
+
+    class ImageMetadata {
+      - int _width
+      - int _height
+      - string _format
+      - long _size
+      + int Width { get; }
+      + int Height { get; }
+      + string Format { get; }
+      + long Size { get; }
+    }
+
+    interface IDateTimeService {
+      + DateTime GetCurrentDateTime()
+      + DateTime GetCurrentDate()
+      + DateTime ConvertToUserTimeZone(DateTime dateTime, string timeZoneId)
+    }
+  }
+
+  ' ==== REPOSITORY INTERFACES ====
+  package "Repository Interfaces" {
+    interface IRepository {
+      + Task<Entity> FindById(Id id)
+      + Task<List<Entity>> FindAll()
+      + Task Save(Entity entity)
+      + Task Delete(Entity entity)
+      + Task<bool> ExistsById(Id id)
+    }
+  }
+
+  ' ==== DOMAIN SERVICES ====
+  package "Domain Services" {
+    interface INotificationService {
+      + Task SendNotification(Notification notification)
+      + Task<List<Notification>> GetPendingNotifications(UserId userId)
+    }
+
+    class Notification {
+      - Guid _id
+      - string _message
+      - NotificationType _type
+      - object _payload
+      + Guid Id { get; }
+      + string Message { get; }
+      + NotificationType Type { get; }
+      + object Payload { get; }
+    }
+
+    enum NotificationType {
+      Email,
+      Push,
+      Sms,
+      InApp
+    }
+  }
+
+  ' ==== EXCEPTIONS ====
+  package "Exceptions" {
+    abstract class DomainException {
+      # DomainException(string message)
+    }
+
+    class ValidationException  {
+      + ValidationException(string message)
+    }
+
+    class ResourceNotFoundException  {
+      + ResourceNotFoundException(string message)
+    }
+
+    class BusinessRuleViolationException  {
+      + BusinessRuleViolationException(string message)
+    }
+  }
+
+  ' ==== UTILITIES ====
+  package "Utilities" {
+    class ValidationUtils {
+      + static bool IsValidEmail(string email)
+      + static bool IsValidPhone(string phone)
+      + static bool IsValidPostalCode(string postalCode, string country)
+    }
+  }
+
+  ' ==== DOMAIN EVENTS ====
+  package "Domain Events" {
+    abstract class DomainEvent {
+      - Guid _eventId
+      - DateTime _occurredOn
+      # DomainEvent()
+      + Guid EventId { get; }
+      + DateTime OccurredOn { get; }
+    }
+
+    interface IDomainEventPublisher {
+      + Task Publish(DomainEvent domainEvent)
+      + void RegisterHandler(IDomainEventHandler handler)
+    }
+
+    interface IDomainEventHandler {
+      + Task Handle(DomainEvent domainEvent)
+    }
+  }
+
+  ' ===== RELATIONSHIPS =====
+  Money --> Currency
+  EntityId --|> Id
+  DomainException <|-- ValidationException
+  DomainException <|-- ResourceNotFoundException
+  DomainException <|-- BusinessRuleViolationException
+  Notification --> NotificationType
+}
+
+@enduml

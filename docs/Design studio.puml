@@ -1,0 +1,163 @@
+@startuml
+' =============================
+' DOMAIN LAYER
+' =============================
+package "Domain Layer" {
+
+  enum ExportFormat {
+    Image,
+    Pdf
+  }
+
+  enum TextAlignment {
+    Left,
+    Center,
+    Right
+  }
+
+  class Design <<Entity>> {
+    - Guid Id
+    - string Name
+    - string Description
+    - Guid OwnerId
+    - DateTime CreationDate
+    - List<Layer> Layers
+    - bool IsPublic
+    + void AddLayer(Layer layer)
+    + void RemoveLayer(Layer layer)
+    + Image GetPreview()
+    + List<Layer> GetLayers()
+    + Design DuplicateDesign()
+    + File ExportDesign(ExportFormat format)
+  }
+
+  abstract class Layer <<Entity>> {
+    - string Name
+    - float PositionX
+    - float PositionY
+    - float Rotation
+    - float Scale
+    - int ZIndex
+    - bool Locked
+    + void Move(float x, float y)
+    + void ScaleTo(float value)
+    + void Rotate(float degrees)
+    + void Lock()
+    + void Unlock()
+    + bool IsLocked()
+  }
+
+  class TextLayer <<Entity>> extends Layer {
+    - string Text
+    - string Font
+    - string Color
+    - float FontSize
+    - TextAlignment Alignment
+    - bool Bold
+    - bool Italic
+    - bool Underline
+    + void UpdateText(string newText)
+    + void ChangeFont(string newFont)
+    + void ChangeColor(string newColor)
+    + void ChangeFontSize(float newSize)
+    + void ChangeAlignment(TextAlignment alignment)
+  }
+
+  class ImageLayer <<Entity>> extends Layer {
+    - string ImageUrl
+    - float Opacity
+    - float Width
+    - float Height
+    - bool MaintainAspectRatio
+    + void UpdateImage(string newUrl)
+    + void ChangeOpacity(float newOpacity)
+    + string GetImageUrl()
+    + void Resize(float newWidth, float newHeight)
+  }
+
+  class ShapeLayer <<Entity>> extends Layer {
+    - string ShapeType
+    - string FillColor
+    - string BorderColor
+    - float BorderWidth
+    - string ShapeId
+    + void UpdateShape(string newShapeType)
+    + void UpdateColors(string newFillColor, string newBorderColor)
+  }
+
+  class Template <<Entity>> {
+    - Guid Id
+    - string Name
+    - string Category
+    - bool IsPremium
+    - Design BaseDesign
+    + Design GetDesign()
+  }
+
+  Template "1" --> "1" Design : BaseDesign
+  Design "1" --> "*" Layer : Contains
+}
+
+' =============================
+' APPLICATION LAYER
+' =============================
+package "Application Layer" {
+
+  class TemplateService {
+    + Template CreateTemplate(string name, Design baseDesign)
+    + Template GetTemplateById(Guid id)
+    + List<Template> ListTemplates()
+  }
+
+  class DesignService {
+    + void AddLayerToDesign(Guid designId, Layer layer)
+    + void RemoveLayerFromDesign(Guid designId, Layer layer)
+    + void UpdateLayer(Guid designId, Layer updatedLayer)
+    + Image GetPreview(Guid designId)
+    + Design DuplicateDesign(Guid designId)
+    + File ExportDesign(Guid designId, ExportFormat format)
+  }
+
+  TemplateService --> Template
+  DesignService --> Design
+}
+
+' =============================
+' INFRASTRUCTURE LAYER
+' =============================
+package "Infrastructure Layer" {
+
+  class CloudinaryAdapter {
+    + string UploadImage(byte[] imageData)
+    + void DeleteImage(string imageUrl)
+    + string TransformImage(string url, Dictionary<string, string> options)
+    + ImageMetadata GetImageMetadata(string url)
+  }
+
+  ImageLayer --> CloudinaryAdapter : Uses >
+}
+
+' =============================
+' INTERFACE LAYER
+' =============================
+package "Interface Layer" {
+
+  class TemplatesController {
+    + Template GetTemplate(Guid id)
+    + Template CreateTemplate(string name, Design baseDesign)
+    + List<Template> ListTemplates()
+  }
+
+  class DesignsController {
+    + void AddLayer(Guid designId, Layer layer)
+    + void DeleteLayer(Guid designId, Layer layer)
+    + void UpdateLayer(Guid designId, Layer updatedLayer)
+    + Image GetPreview(Guid designId)
+    + Design DuplicateDesign(Guid designId)
+    + File ExportDesign(Guid designId, ExportFormat format)
+  }
+
+  TemplatesController --> TemplateService
+  DesignsController --> DesignService
+}
+@enduml

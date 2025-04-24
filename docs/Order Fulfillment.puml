@@ -1,0 +1,109 @@
+@startuml
+' =============================
+' DOMAIN LAYER
+' =============================
+class OrderId <<ValueObject>> {
+    - Guid Value
+  + OrderId(Guid value)
+}
+
+package "Domain Layer" {
+
+  class Fulfillment <<Entity>> {
+    - Guid Id
+    - OrderId OrderId
+    - FulfillmentStatus Status
+    - FulfillmentDate FulfillmentDate
+    - bool IsCanceled
+    - DateTime ShippedAt
+    - DateTime PackedAt
+    + void Start()
+    + void MarkPacked()
+    + void MarkShipped()
+    + FulfillmentStatus GetStatus()
+    + void Cancel()
+    + bool IsDelayed()
+    + DateTime EstimateDeliveryDate()
+  }
+
+  enum FulfillmentStatus {
+    Pending,
+    InProduction,
+    Packed,
+    Shipped,
+    Delivered,
+    Canceled
+  }
+
+  interface IFulfillmentRepository {
+    + void Save(Fulfillment fulfillment)
+    + Fulfillment FindByOrderId(OrderId orderId)
+    + void UpdateStatus(OrderId orderId, FulfillmentStatus status)
+  }
+
+  class FulfillmentDate <<ValueObject>> {
+    - DateTime StartedAt
+    - DateTime CompletedAt
+    + DateTime GetStartedAt()
+    + DateTime GetCompletedAt()
+    + long CalculateDuration()
+  }
+
+  Fulfillment --> OrderId
+  Fulfillment --> FulfillmentStatus
+  Fulfillment --> FulfillmentDate
+}
+
+' =============================
+' APPLICATION LAYER
+' =============================
+package "Application Layer" {
+
+  class FulfillmentService {
+    - IFulfillmentRepository _fulfillmentRepository
+    - IShippingService _shippingService
+    + void InitiateFulfillment(OrderId orderId)
+    + void PackOrder(OrderId orderId)
+    + void ShipOrder(OrderId orderId)
+    + void CancelFulfillment(OrderId orderId)
+    + DateTime GetEstimatedDeliveryDate(OrderId orderId)
+    + bool IsOrderDelayed(OrderId orderId)
+  }
+
+  FulfillmentService --> Fulfillment
+  FulfillmentService --> IFulfillmentRepository
+}
+
+' =============================
+' INFRASTRUCTURE LAYER
+' =============================
+package "Infrastructure Layer" {
+
+  class FulfillmentRepositoryImpl {
+    - Dictionary<OrderId, Fulfillment> _database
+    + void Save(Fulfillment fulfillment)
+    + Fulfillment FindByOrderId(OrderId orderId)
+    + void UpdateStatus(OrderId orderId, FulfillmentStatus status)
+  }
+
+  FulfillmentRepositoryImpl ..|> IFulfillmentRepository
+}
+
+' =============================
+' INTERFACE LAYER
+' =============================
+package "Interface Layer" {
+
+  class FulfillmentsController {
+    - FulfillmentService _fulfillmentService
+    + string StartFulfillment(OrderId orderId)
+    + string PackOrder(OrderId orderId)
+    + string ShipOrder(OrderId orderId)
+    + string CancelFulfillment(OrderId orderId)
+    + DateTime GetEstimatedDeliveryDate(OrderId orderId)
+    + bool IsOrderDelayed(OrderId orderId)
+  }
+
+  FulfillmentsController --> FulfillmentService
+}
+@enduml

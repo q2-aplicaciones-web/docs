@@ -1,0 +1,148 @@
+@startuml
+' =============================
+' DOMAIN LAYER
+' =============================
+
+class OrderId <<ValueObject>> {
+    - Guid Value
+  + OrderId(Guid value)
+}
+
+class Money <<ValueObject>> {
+    - decimal Amount
+    - Currency Currency
+    + decimal GetAmount()
+    + Currency GetCurrency()
+    + Money Add(Money other)
+    + Money Subtract(Money other)
+    + Money Multiply(double multiplier)
+}
+
+package "Domain Layer" {
+
+  class Order <<Entity>> {
+    - OrderId Id
+    - DateTime OrderDate
+    - OrderStatus Status
+    - User Customer
+    - List<OrderItem> Items
+    + Money CalculateTotal()
+    + void MarkAsReady()
+    + void AddItem(OrderItem item)
+  }
+
+  Order --> OrderId
+
+  class OrderItem <<Entity>> {
+    - Guid Id
+    - ProductName ProductName
+    - Quantity Quantity
+    - Money UnitPrice
+    + Money GetSubtotal()
+  }
+
+  enum OrderStatus {
+    Pending,
+    Paid,
+    Cancelled,
+    ReadyForProduction
+  }
+
+  interface IOrderRepository {
+    + void Save(Order order)
+    + Order FindById(Guid id)
+    + void Update(Order order)
+  }
+
+  class Quantity <<ValueObject>> {
+    - int Value
+    + int GetValue()
+  }
+
+  class ProductName <<ValueObject>> {
+    - string Value
+    + string GetValue()
+  }
+
+  class User <<Entity>> {
+    - Guid Id
+    - string FullName
+    - string Email
+    + string GetFullName()
+    + string GetEmail()
+  }
+
+  Order --> OrderItem : Contains >
+  Order --> OrderStatus
+  Order --> User : PlacedBy >
+  OrderItem --> Money
+  OrderItem --> Quantity
+  OrderItem --> ProductName
+}
+
+' =============================
+' APPLICATION LAYER
+' =============================
+
+package "Application Layer" {
+
+  interface IPaymentGateway {
+    + bool ProcessPayment(Guid orderId, Money amount, string paymentMethod)
+    + bool RefundPayment(Guid orderId)
+    + bool ValidateCard(string cardNumber, string cvv, string expiryDate)
+    + string GetPaymentStatus(Guid orderId)
+  }
+
+  class OrderService {
+    - IOrderRepository _orderRepository
+    - IPaymentGateway _paymentGateway
+    + Order CreateOrder(User user, List<OrderItem> items)
+    + void PayOrder(Guid orderId)
+    + void CancelOrder(Guid orderId)
+    + void MarkOrderReady(Guid orderId)
+  }
+
+  OrderService --> Order
+  OrderService --> IOrderRepository
+  OrderService --> IPaymentGateway
+}
+
+' =============================
+' INFRASTRUCTURE LAYER
+' =============================
+package "Infrastructure Layer" {
+
+  class OrderRepositoryImpl {
+    - Dictionary<Guid, Order> _database
+    + void Save(Order order)
+    + Order FindById(Guid id)
+    + void Update(Order order)
+  }
+
+  class PaymentGatewayAdapter {
+    + bool ProcessPayment(Guid orderId, Money amount, string paymentMethod)
+    + bool RefundPayment(Guid orderId)
+    + bool ValidateCard(string cardNumber, string cvv, string expiryDate)
+    + string GetPaymentStatus(Guid orderId)
+  }
+
+  OrderRepositoryImpl ..|> IOrderRepository
+  PaymentGatewayAdapter ..|> IPaymentGateway
+}
+
+' =============================
+' INTERFACE LAYER
+' =============================
+package "Interface Layer" {
+
+  class OrdersController {
+    - OrderService _orderService
+    + Order CreateOrder(User user, List<OrderItem> items)
+    + void PayOrder(Guid orderId)
+    + void CancelOrder(Guid orderId)
+    + void MarkReady(Guid orderId)
+  }
+
+  OrdersController --> OrderService
+}
+@enduml

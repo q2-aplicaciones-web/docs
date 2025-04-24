@@ -1,0 +1,247 @@
+@startuml
+' =============================
+' DOMAIN LAYER
+' =============================
+
+class Money <<ValueObject>> {
+  - decimal Amount
+  - Currency Currency
+  + decimal GetAmount()
+  + Currency GetCurrency()
+  + Money Add(Money other)
+  + Money Subtract(Money other)
+  + Money Multiply(double multiplier)
+}
+
+
+package "Domain Layer" {
+
+  class ProductId <<ValueObject>> {
+    - Guid Value
+    + Guid GetValue()
+  }
+
+  class CategoryId <<ValueObject>> {
+    - Guid Value
+    + Guid GetValue()
+  }
+
+  class CategoryName <<ValueObject>> {
+    - string Value
+    + string GetValue()
+  }
+
+  class Image <<ValueObject>> {
+    - string Url
+    + string GetUrl()
+  }
+
+  class ProductDescription <<ValueObject>> {
+    - string Value
+    + string GetValue()
+    + bool IsValid()
+  }
+
+  class Score <<ValueObject>> {
+    - float Value
+    - int MaxValue
+    + float GetValue()
+    + float GetPercentage()
+    + bool IsValid()
+    + int CompareTo(Score other)
+  }
+
+  class Label <<ValueObject>> {
+    - string Value
+    - string ColorCode
+    + string GetValue()
+    + string GetColor()
+    + bool IsValid()
+    + void UpdateColor(string newColor)
+  }
+
+  class Product <<Entity>> {
+    - ProductId Id
+    - string Title
+    - ProductDescription Description
+    - Money Price
+    - List<Label> Tags
+    - Score Rating
+    - Image PreviewImage
+    - int Stock
+    - bool IsActive
+    - DateTime CreatedAt
+    - DateTime UpdatedAt
+    + string GetInfo()
+    + Image GetPreview()
+    + float CalculateAverageScore()
+    + void AddTag(Label tag)
+    + void RemoveTag(Label tag)
+    + void UpdateStock(int newStock)
+    + void UpdateDescription(ProductDescription newDescription)
+    + void UpdatePrice(Price newPrice)
+    + void UpdatePreviewImage(Image newImage)
+    + void Activate()
+    + void Deactivate()
+  }
+
+  class Category <<Entity>> {
+    - CategoryId Id
+    - CategoryName Name
+    - string Description
+    - List<Product> Products
+    + string GetName()
+    + string GetDescription()
+    + void AddProduct(Product product)
+    + void RemoveProduct(Product product)
+  }
+
+  Product *-- ProductId
+  Product *-- ProductDescription
+  Product *-- Money
+  Product *-- Score
+  Product *-- "0..*" Label
+  Product *-- Image
+  Product --> Category
+
+  Category *-- CategoryId
+  Category *-- CategoryName
+}
+
+' =============================
+' APPLICATION LAYER
+' =============================
+package "Application Layer" {
+
+  interface IProductRepository {
+    + List<Product> FindAll()
+    + Product FindById(ProductId id)
+    + List<Product> FindByCategory(CategoryId categoryId)
+    + List<Product> FindByScore(Score minScore)
+    + List<Product> FindByLabel(Label label)
+    + List<Product> FindActiveProducts()
+    + List<Product> FindOutOfStockProducts()
+    + void Save(Product product)
+    + void Delete(ProductId id)
+  }
+
+  interface ICategoryRepository {
+    + List<Category> FindAll()
+    + Category FindById(CategoryId id)
+    + void Save(Category category)
+    + void Delete(CategoryId id)
+  }
+
+  class ProductCatalogService {
+    - IProductRepository _productRepository
+    - ICategoryRepository _categoryRepository
+    + List<Product> ListAllProducts()
+    + Product FetchProductById(ProductId id)
+    + List<Product> ListByCategory(CategoryId categoryId)
+    + List<Product> ListTopRated(Score minScore)
+    + List<Product> ListByLabel(Label label)
+    + List<Product> ListActive()
+    + List<Product> ListOutOfStock()
+    + void UpdateStock(ProductId id, int newStock)
+    + void UpdateDescription(ProductId id, ProductDescription newDesc)
+    + void UpdatePrice(ProductId id, Price newPrice)
+    + void UpdatePreviewImage(ProductId id, Image newImage)
+    + void ChangeCategory(ProductId id, CategoryId newCategory)
+    + void CreateProduct(Product product)
+    + void DeleteProduct(ProductId id)
+    + void Activate(ProductId id)
+    + void Deactivate(ProductId id)
+  }
+
+  class CategoryService {
+    - ICategoryRepository _categoryRepository
+    + List<Category> ListAllCategories()
+    + Category GetCategoryById(CategoryId id)
+    + void CreateCategory(Category category)
+    + void UpdateCategory(CategoryId id, CategoryName name, string description)
+    + void DeleteCategory(CategoryId id)
+  }
+
+  ProductCatalogService --> Product
+  ProductCatalogService --> IProductRepository
+  ProductCatalogService --> ICategoryRepository
+  CategoryService --> ICategoryRepository
+}
+
+' =============================
+' INFRASTRUCTURE LAYER
+' =============================
+package "Infrastructure Layer" {
+
+  class ProductRepositoryImpl {
+    - List<Product> _productsDb
+    + List<Product> FindAll()
+    + Product FindById(ProductId id)
+    + List<Product> FindByCategory(CategoryId categoryId)
+    + List<Product> FindByScore(Score minScore)
+    + List<Product> FindByLabel(Label label)
+    + List<Product> FindActiveProducts()
+    + List<Product> FindOutOfStockProducts()
+    + void Save(Product product)
+    + void Delete(ProductId id)
+  }
+
+  class CategoryRepositoryImpl {
+    - List<Category> _categoriesDb
+    + List<Category> FindAll()
+    + Category FindById(CategoryId id)
+    + void Save(Category category)
+    + void Delete(CategoryId id)
+  }
+
+  class CloudinaryImageService {
+    - string _cloudName
+    + string GetImageUrl(string imageId)
+    + void DeleteImage(string imageUrl)
+    + string TransformImage(string imageUrl, Dictionary<string, string> options)
+  }
+
+  ProductRepositoryImpl --> CloudinaryImageService
+  ProductRepositoryImpl ..|> IProductRepository
+  CategoryRepositoryImpl ..|> ICategoryRepository
+}
+
+' =============================
+' INTERFACE LAYER
+' =============================
+package "Interface Layer" {
+
+  class ProductsController {
+    - ProductCatalogService _catalogService
+    + List<Product> GetAll()
+    + Product GetById(ProductId id)
+    + List<Product> GetByCategory(CategoryId categoryId)
+    + List<Product> GetTopRated(float minScore)
+    + List<Product> GetByLabel(string label)
+    + List<Product> GetActive()
+    + List<Product> GetOutOfStock()
+    + void Create(Product product)
+    + void UpdateStock(ProductId id, int newStock)
+    + void UpdatePrice(ProductId id, Price newPrice)
+    + void UpdateDescription(ProductId id, ProductDescription newDesc)
+    + void UpdateImage(ProductId id, Image newImage)
+    + void ChangeCategory(ProductId id, CategoryId newCategory)
+    + void Activate(ProductId id)
+    + void Deactivate(ProductId id)
+    + void Delete(ProductId id)
+  }
+
+  class CategoriesController {
+    - CategoryService _categoryService
+    + List<Category> GetAllCategories()
+    + Category GetCategory(CategoryId id)
+    + void CreateCategory(Category category)
+    + void UpdateCategory(CategoryId id, CategoryName name, string description)
+    + void DeleteCategory(CategoryId id)
+  }
+
+  ProductsController --> ProductCatalogService
+  CategoriesController --> CategoryService
+}
+
+@enduml

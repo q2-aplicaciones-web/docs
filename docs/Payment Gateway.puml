@@ -1,0 +1,129 @@
+@startuml
+
+' =============================
+' DOMAIN LAYER
+' =============================
+class Money <<ValueObject>> {
+  - decimal Amount
+  - Currency Currency
+  + decimal GetAmount()
+  + Currency GetCurrency()
+  + Money Add(Money other)
+  + Money Subtract(Money other)
+  + Money Multiply(double multiplier)
+}
+
+package "Domain Layer" {
+    enum PaymentStatus {
+        Pending,
+        Completed,
+        Failed,
+        Refunded
+    }
+
+  class Payment <<Entity>> {
+    - Guid Id
+    - Money Amount
+    - PaymentStatus Status
+
+    + PaymentStatus GetStatus()
+    + Money GetAmount()
+  }
+
+  interface IPaymentProcessor {
+    + bool ProcessPayment(Payment payment)
+    + bool RefundPayment(Payment payment)
+  }
+
+  class PaymentEvent <<DomainEvent>> {
+    - Guid PaymentId
+    - string EventType
+    - DateTime Timestamp
+    - string Details
+  }
+
+  class Invoice {
+    - Guid Id
+    - Payment Payment
+    - string InvoiceNumber
+    - DateTime IssuedAt
+  }
+
+  class PaymentRetryPolicy {
+    + bool ShouldRetry(Payment payment)
+    + TimeSpan GetNextRetryDelay(Payment payment)
+  }
+
+  class PaymentSpecification {
+    + bool IsSatisfiedBy(Payment payment)
+  }
+
+  Payment --> Money
+  Payment --> PaymentEvent
+  Payment --> Invoice
+}
+
+' =============================
+' APPLICATION LAYER
+' =============================
+
+package "Application Layer" {
+
+  class PaymentService {
+    - PaymentProcessorFactory _processorFactory
+    + bool MakePayment(Payment payment)
+    + bool IssueRefund(Payment payment)
+  }
+
+  class PaymentProcessorFactory {
+    + IPaymentProcessor GetProcessorFor(Payment payment)
+  }
+
+  PaymentService --> Payment
+  PaymentService --> PaymentProcessorFactory
+  PaymentService --> PaymentSpecification
+  PaymentService --> PaymentRetryPolicy
+}
+
+' =============================
+' INFRASTRUCTURE LAYER
+' =============================
+package "Infrastructure Layer" {
+
+  class StripePaymentAdapter {
+    - string _stripeApiKey
+    + bool ProcessPayment(Payment payment)
+    + bool RefundPayment(Payment payment)
+  }
+
+  class "Stripe API" {
+    + string CreatePaymentIntent(decimal amount, string currency)
+    + bool ConfirmPayment(string paymentIntentId)
+  }
+
+  StripePaymentAdapter --> "Stripe API"
+  StripePaymentAdapter ..|> IPaymentProcessor
+}
+
+' =============================
+' INTERFACE LAYER
+' =============================
+package "Interface Layer" {
+
+  class PaymentsController {
+    - PaymentService _paymentService
+    + bool Pay(Payment payment)
+    + bool Refund(Payment payment)
+  }
+
+  class AuthenticatedUser {
+    - Guid UserId
+    - List<Role> Roles
+    + bool HasRole(string role)
+  }
+
+  PaymentsController --> PaymentService
+  PaymentsController --> AuthenticatedUser
+}
+
+@enduml

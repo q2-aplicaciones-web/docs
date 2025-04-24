@@ -1,0 +1,131 @@
+@startuml
+' =============================
+' DOMAIN LAYER
+' =============================
+package "Domain Layer" {
+  class User <<Entity>> {
+    - Guid Id
+    - Username Username
+    - Email Email
+    - Password Password
+    - HashSet<Role> Roles
+    - Address Address
+    + bool IsAuthorized(string permission)
+    + bool ChangePassword(Password oldPassword, Password newPassword)
+  }
+
+  class Username <<ValueObject>> {
+    - string Value
+    + Username(string value)
+    + string GetValue()
+    + bool IsValid()
+  }
+
+  class Email <<ValueObject>> {
+    - string Value
+    + Email(string value)
+    + string GetValue()
+    + bool IsValid()
+  }
+
+  class Password <<ValueObject>> {
+    - string Hash
+    - string Salt
+    - DateTime CreatedAt
+    - bool Expired
+    + static Password CreateFromPlainText(string plainText)
+    + bool Matches(string plainText)
+    + bool IsExpired()
+  }
+
+  class Role <<ValueObject>> {
+    - string Name
+    + string GetName()
+  }
+
+  class Address <<ValueObject>> {
+    - string Street
+    - string City
+    - string State
+    - string ZipCode
+    - string Country
+    + bool Equals(object other)
+    + string ToString()
+  }
+
+  class Token <<ValueObject>> {
+    - string Value
+    + Token(string value)
+    + string GetValue()
+    + bool IsValid()
+  }
+
+  User --> Username
+  User --> Email
+  User --> Password
+  User "1" --> "0..*" Role
+  User --> Address
+}
+
+' =============================
+' APPLICATION LAYER
+' =============================
+package "Application Layer" {
+  interface IUserRepository {
+    + User FindByUsername(Username username)
+    + void Save(User user)
+    + bool ExistsByEmail(Email email)
+  }
+
+  interface IAuthService {
+    + bool Authenticate(Username username, Password password)
+    + Token GenerateToken(User user)
+  }
+
+  class UserService {
+    - IUserRepository _userRepository
+    - IAuthService _authService
+    + bool RegisterUser(Username username, Email email, Password password)
+    + Token Login(Username username, Password password)
+    + bool ChangePassword(Username username, Password oldPassword, Password newPassword)
+  }
+
+  UserService --> IUserRepository
+  UserService --> IAuthService
+  UserService --> User : «manages»
+}
+
+' =============================
+' INFRASTRUCTURE LAYER
+' =============================
+package "Infrastructure Layer" {
+  class UserRepositoryImpl {
+    + User FindByUsername(Username username)
+    + void Save(User user)
+    + bool ExistsByEmail(Email email)
+  }
+
+  class JwtAuthService {
+    + bool Authenticate(Username username, Password password)
+    + Token GenerateToken(User user)
+  }
+
+  UserRepositoryImpl ..|> IUserRepository
+  JwtAuthService ..|> IAuthService
+  JwtAuthService --> User : «validates»
+}
+
+' =============================
+' INTERFACE/PRESENTATION LAYER
+' =============================
+package "Interface Layer" {
+  class UsersController {
+    - UserService _userService
+    + ActionResult<bool> Register(string username, string email, string password)
+    + ActionResult<string> Login(string username, string password)
+    + ActionResult<bool> ChangePassword(string username, string oldPassword, string newPassword)
+  }
+
+  UsersController --> UserService
+}
+@enduml
